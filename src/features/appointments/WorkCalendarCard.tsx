@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Button, Card, Snackbar, Text, TextInput } from 'react-native-paper';
@@ -55,13 +56,14 @@ const normalizeTime = (value: string): string | null => {
   if (!trimmed) return null;
 
   if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(trimmed)) {
-    throw new Error('Hora inválida. Usá formato HH:mm.');
+    throw new Error('Hora invalida. Usa formato HH:mm.');
   }
 
   return `${trimmed}:00`;
 };
 
 export const WorkCalendarCard = () => {
+  const router = useRouter();
   const [monthAnchor, setMonthAnchor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(() => formatLocalDate(new Date()));
   const [title, setTitle] = useState('');
@@ -99,18 +101,20 @@ export const WorkCalendarCard = () => {
 
   return (
     <Card style={styles.card}>
-      <Card.Title title="Agenda de trabajos" subtitle="Turnos, visitas y pendientes" />
+      <Card.Title title="Agenda de trabajos" subtitle="Trabajos programados por fecha" />
       <Card.Content style={styles.content}>
-        <View style={styles.monthNav}>
-          <Button compact onPress={() => moveMonth(-1)}>
-            Mes anterior
-          </Button>
+        <View style={styles.monthHeader}>
           <Text variant="titleMedium" style={styles.monthLabel}>
             {monthLabel(monthAnchor)}
           </Text>
-          <Button compact onPress={() => moveMonth(1)}>
-            Mes siguiente
-          </Button>
+          <View style={styles.monthNav}>
+            <Button compact onPress={() => moveMonth(-1)} style={styles.monthButton}>
+              Mes anterior
+            </Button>
+            <Button compact onPress={() => moveMonth(1)} style={styles.monthButton}>
+              Mes siguiente
+            </Button>
+          </View>
         </View>
 
         <View style={styles.weekHeader}>
@@ -149,76 +153,90 @@ export const WorkCalendarCard = () => {
           })}
         </View>
 
-        <Text variant="titleMedium">Turnos del {toHumanDate(selectedDate)}</Text>
-        {appointmentsQuery.isLoading && <Text>Cargando turnos...</Text>}
+        <Text variant="titleMedium">Trabajos del {toHumanDate(selectedDate)}</Text>
+        {appointmentsQuery.isLoading && <Text>Cargando trabajos...</Text>}
         {!appointmentsQuery.isLoading && selectedDateAppointments.length === 0 && (
-          <Text>No hay turnos cargados para esta fecha.</Text>
+          <Text>No hay trabajos cargados para esta fecha.</Text>
         )}
         {!appointmentsQuery.isLoading &&
           selectedDateAppointments.map((appointment) => (
             <Card key={appointment.id} mode="outlined" style={styles.appointmentCard}>
               <Card.Content>
                 <Text variant="titleSmall">
-                  {appointment.starts_at ? appointment.starts_at.slice(0, 5) : '--:--'} · {appointment.title}
+                  {appointment.starts_at ? appointment.starts_at.slice(0, 5) : '--:--'} - {appointment.title}
                 </Text>
                 {appointment.notes ? <Text>{appointment.notes}</Text> : null}
-                <Button
-                  compact
-                  textColor="#B3261E"
-                  style={styles.deleteButton}
-                  onPress={async () => {
-                    try {
-                      await deleteAppointment.mutateAsync(appointment.id);
-                      setMessage('Turno eliminado.');
-                    } catch (error) {
-                      setMessage(toUserErrorMessage(error, 'No se pudo eliminar el turno.'));
-                    }
-                  }}
-                >
-                  Borrar
-                </Button>
+                <View style={styles.appointmentActions}>
+                  {appointment.quote_id ? (
+                    <Button compact onPress={() => router.push(`/quotes/${appointment.quote_id}`)}>
+                      Ver detalle
+                    </Button>
+                  ) : (
+                    <Text style={styles.helperText}>Sin trabajo vinculado</Text>
+                  )}
+                  <Button
+                    compact
+                    textColor="#B3261E"
+                    style={styles.deleteButton}
+                    onPress={async () => {
+                      try {
+                        await deleteAppointment.mutateAsync(appointment.id);
+                        setMessage('Trabajo eliminado del calendario.');
+                      } catch (error) {
+                        setMessage(toUserErrorMessage(error, 'No se pudo eliminar el trabajo.'));
+                      }
+                    }}
+                  >
+                    Borrar
+                  </Button>
+                </View>
               </Card.Content>
             </Card>
           ))}
 
-        <Text variant="titleMedium">Nuevo turno</Text>
-        <TextInput mode="outlined" label="Trabajo / turno" value={title} onChangeText={setTitle} />
-        <TextInput mode="outlined" label="Hora (HH:mm)" value={startsAt} onChangeText={setStartsAt} />
-        <TextInput mode="outlined" label="Notas (opcional)" value={notes} onChangeText={setNotes} multiline />
-        <Button
-          mode="contained"
-          loading={createAppointment.isPending}
-          disabled={createAppointment.isPending}
-          onPress={async () => {
-            try {
-              const normalizedTitle = title.trim();
-              if (!normalizedTitle) {
-                throw new Error('El título del turno es obligatorio.');
+        <View style={styles.quickForm}>
+          <Text variant="titleMedium">Nuevo turno rapido</Text>
+          <TextInput mode="outlined" label="Trabajo / turno" value={title} onChangeText={setTitle} />
+          <TextInput mode="outlined" label="Hora (HH:mm)" value={startsAt} onChangeText={setStartsAt} />
+          <TextInput mode="outlined" label="Notas (opcional)" value={notes} onChangeText={setNotes} multiline />
+          <Button
+            mode="contained"
+            style={styles.primaryAction}
+            contentStyle={styles.primaryActionContent}
+            loading={createAppointment.isPending}
+            disabled={createAppointment.isPending}
+            onPress={async () => {
+              try {
+                const normalizedTitle = title.trim();
+                if (!normalizedTitle) {
+                  throw new Error('El titulo del turno es obligatorio.');
+                }
+
+                const normalizedStartsAt = normalizeTime(startsAt);
+
+                await createAppointment.mutateAsync({
+                  quote_id: null,
+                  title: normalizedTitle,
+                  notes: notes.trim() ? notes.trim() : null,
+                  scheduled_for: selectedDate,
+                  starts_at: normalizedStartsAt,
+                  ends_at: null,
+                  status: 'scheduled',
+                  store_id: null,
+                });
+
+                setTitle('');
+                setStartsAt('');
+                setNotes('');
+                setMessage('Turno agendado.');
+              } catch (error) {
+                setMessage(toUserErrorMessage(error, 'No se pudo agendar el turno.'));
               }
-
-              const normalizedStartsAt = normalizeTime(startsAt);
-
-              await createAppointment.mutateAsync({
-                title: normalizedTitle,
-                notes: notes.trim() ? notes.trim() : null,
-                scheduled_for: selectedDate,
-                starts_at: normalizedStartsAt,
-                ends_at: null,
-                status: 'scheduled',
-                store_id: null,
-              });
-
-              setTitle('');
-              setStartsAt('');
-              setNotes('');
-              setMessage('Turno agendado.');
-            } catch (error) {
-              setMessage(toUserErrorMessage(error, 'No se pudo agendar el turno.'));
-            }
-          }}
-        >
-          Agendar turno
-        </Button>
+            }}
+          >
+            Agendar turno
+          </Button>
+        </View>
       </Card.Content>
 
       <Snackbar visible={Boolean(message)} onDismiss={() => setMessage(null)}>
@@ -235,13 +253,20 @@ const styles = StyleSheet.create({
   content: {
     gap: 12,
   },
+  monthHeader: {
+    gap: 6,
+  },
   monthNav: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
+  },
+  monthButton: {
+    minWidth: 130,
   },
   monthLabel: {
+    textAlign: 'center',
     textTransform: 'capitalize',
     fontWeight: '600',
   },
@@ -280,8 +305,30 @@ const styles = StyleSheet.create({
   appointmentCard: {
     marginTop: 2,
   },
+  appointmentActions: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  helperText: {
+    color: '#5f6368',
+  },
   deleteButton: {
     alignSelf: 'flex-end',
+  },
+  quickForm: {
     marginTop: 4,
+    gap: 10,
+    paddingBottom: 8,
+  },
+  primaryAction: {
+    borderRadius: 999,
+    marginTop: 2,
+  },
+  primaryActionContent: {
+    minHeight: 44,
   },
 });

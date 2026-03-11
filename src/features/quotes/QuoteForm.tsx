@@ -11,7 +11,7 @@ interface Props {
   buttonLabel?: string;
 }
 
-export const QuoteForm = ({ defaultValues, onSubmit, buttonLabel = 'Guardar presupuesto' }: Props) => {
+export const QuoteForm = ({ defaultValues, onSubmit, buttonLabel = 'Guardar trabajo' }: Props) => {
   const {
     control,
     handleSubmit,

@@ -1,37 +1,82 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { Href } from 'expo-router';
+import { Link } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 import { Card, Text } from 'react-native-paper';
 
 import { AppScreen } from '@/components/AppScreen';
-import { LoadingOrError } from '@/components/LoadingOrError';
-import { WorkCalendarCard } from '@/features/appointments/WorkCalendarCard';
-import { useDashboardSummary } from '@/features/dashboard/hooks';
-import { formatCurrencyArs, formatDateAr } from '@/lib/format';
 
-export default function DashboardScreen() {
-  const { data, isLoading, error } = useDashboardSummary();
+type HomeAction = {
+  title: string;
+  subtitle: string;
+  href: Href;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+};
 
+const HOME_ACTIONS: HomeAction[] = [
+  { title: 'Trabajos', subtitle: 'Crear y gestionar trabajos', href: '/quotes', icon: 'briefcase-outline' },
+  { title: 'Calendario', subtitle: 'Ver trabajos programados', href: '/(tabs)/calendar', icon: 'calendar-month-outline' },
+  { title: 'Tiendas', subtitle: 'Gestionar proveedores', href: '/stores', icon: 'store-outline' },
+  { title: 'Materiales', subtitle: 'Materiales y precios', href: '/items', icon: 'cube-outline' },
+  { title: 'Servicios', subtitle: 'Mano de obra y tarifas', href: '/services', icon: 'wrench-outline' },
+  { title: 'Opciones', subtitle: 'Perfil y ajustes', href: '/settings', icon: 'cog-outline' },
+];
+
+export default function HomeScreen() {
   return (
-    <AppScreen title="Dashboard">
-      <LoadingOrError isLoading={isLoading} error={error} />
-      {data && (
-        <>
-          <Card>
-            <Card.Title title="Tiendas activas" subtitle={String(data.totalStores)} />
-          </Card>
-          <Card>
-            <Card.Title title="Ítems activos" subtitle={String(data.totalItems)} />
-          </Card>
-          {data.latestPrices.map((price) => (
-            <Card key={price.id}>
-              <Card.Title
-                title={`${price.item_name} - ${price.store_name}`}
-                subtitle={`${formatCurrencyArs(price.price)} (${formatDateAr(price.observed_at)})`}
-              />
+    <AppScreen title="Inicio" showBackButton={false}>
+      <Text style={styles.subtitle}>Accesos principales</Text>
+      <View style={styles.grid}>
+        {HOME_ACTIONS.map((action) => (
+          <Link key={action.title} href={action.href} asChild>
+            <Card mode="contained" style={styles.tile}>
+              <Card.Content style={styles.tileContent}>
+                <MaterialCommunityIcons name={action.icon} size={34} color="#0B6E4F" />
+                <Text variant="titleMedium" style={styles.tileTitle}>
+                  {action.title}
+                </Text>
+                <Text style={styles.tileSubtitle}>{action.subtitle}</Text>
+              </Card.Content>
             </Card>
-          ))}
-          {data.latestPrices.length === 0 && <Text>No hay precios cargados aún. Registrá uno para iniciar el historial.</Text>}
-          <WorkCalendarCard />
-        </>
-      )}
+          </Link>
+        ))}
+      </View>
     </AppScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  subtitle: {
+    color: '#4B5563',
+    marginTop: -6,
+    marginBottom: 2,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  tile: {
+    width: '48%',
+    aspectRatio: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCE4EC',
+    marginBottom: 12,
+  },
+  tileContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 8,
+  },
+  tileTitle: {
+    textAlign: 'center',
+  },
+  tileSubtitle: {
+    textAlign: 'center',
+    color: '#5f6368',
+    lineHeight: 18,
+  },
+});

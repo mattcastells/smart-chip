@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createAppointment, deleteAppointment, listAppointmentsInRange, type AppointmentInput } from '@/services/appointments';
+import { createAppointment, deleteAppointment, listAppointmentsInRange, type AppointmentInput, upsertQuoteAppointment } from '@/services/appointments';
 
 const formatLocalDate = (value: Date): string => {
   const year = value.getFullYear();
@@ -27,7 +27,12 @@ export const useCreateAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: AppointmentInput) => createAppointment(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+    onSuccess: (appointment) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      if (appointment.quote_id) {
+        queryClient.invalidateQueries({ queryKey: ['quote-detail', appointment.quote_id] });
+      }
+    },
   });
 };
 
@@ -35,6 +40,22 @@ export const useDeleteAppointment = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (appointmentId: string) => deleteAppointment(appointmentId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      if (result.quote_id) {
+        queryClient.invalidateQueries({ queryKey: ['quote-detail', result.quote_id] });
+      }
+    },
+  });
+};
+
+export const useUpsertQuoteAppointment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Omit<AppointmentInput, 'quote_id'> & { quote_id: string }) => upsertQuoteAppointment(payload),
+    onSuccess: (appointment) => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['quote-detail', appointment.quote_id] });
+    },
   });
 };

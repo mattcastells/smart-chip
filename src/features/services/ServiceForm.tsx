@@ -1,36 +1,71 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { View } from 'react-native';
-import { Button, Text, TextInput } from 'react-native-paper';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Chip, Text, TextInput } from 'react-native-paper';
 
 import { ServiceFormValues, serviceSchema } from './schemas';
 
 interface Props {
   defaultValues?: Partial<ServiceFormValues>;
+  categorySuggestions?: string[];
   onSubmit: (values: ServiceFormValues) => Promise<void>;
 }
 
-export const ServiceForm = ({ defaultValues, onSubmit }: Props) => {
+export const ServiceForm = ({ defaultValues, categorySuggestions = [], onSubmit }: Props) => {
   const {
     control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { isSubmitting, errors },
   } = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       name: defaultValues?.name ?? '',
+      description: defaultValues?.description ?? '',
+      category: defaultValues?.category ?? '',
+      unit_type: defaultValues?.unit_type ?? '',
       base_price: defaultValues?.base_price ?? 0,
-      is_active: defaultValues?.is_active ?? true,
     },
   });
 
+  const selectedCategory = watch('category')?.trim() ?? '';
+
   return (
-    <View style={{ gap: 12 }}>
+    <View style={styles.form}>
       <Controller
         control={control}
         name="name"
         render={({ field }) => <TextInput mode="outlined" label="Nombre" value={field.value} onChangeText={field.onChange} />}
       />
+      <Controller
+        control={control}
+        name="description"
+        render={({ field }) => (
+          <TextInput mode="outlined" label="Descripcion" value={field.value ?? ''} onChangeText={field.onChange} multiline numberOfLines={3} />
+        )}
+      />
+      <Controller
+        control={control}
+        name="category"
+        render={({ field }) => <TextInput mode="outlined" label="Categoria" value={field.value ?? ''} onChangeText={field.onChange} />}
+      />
+      {categorySuggestions.length > 0 && (
+        <View style={styles.categorySuggestions}>
+          <Text variant="labelMedium">Categorias disponibles</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {categorySuggestions.map((category) => (
+              <Chip
+                key={category}
+                selected={selectedCategory.toLowerCase() === category.toLowerCase()}
+                onPress={() => setValue('category', category)}
+              >
+                {category}
+              </Chip>
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <Controller
         control={control}
         name="base_price"
@@ -44,6 +79,11 @@ export const ServiceForm = ({ defaultValues, onSubmit }: Props) => {
           />
         )}
       />
+      <Controller
+        control={control}
+        name="unit_type"
+        render={({ field }) => <TextInput mode="outlined" label="Unidad de trabajo (opcional)" value={field.value ?? ''} onChangeText={field.onChange} />}
+      />
       {errors.name && <Text style={{ color: '#B00020' }}>{errors.name.message}</Text>}
       <Button mode="contained" loading={isSubmitting} onPress={handleSubmit(onSubmit)}>
         Guardar servicio
@@ -51,3 +91,16 @@ export const ServiceForm = ({ defaultValues, onSubmit }: Props) => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  form: {
+    gap: 12,
+  },
+  categorySuggestions: {
+    gap: 8,
+  },
+  chipsRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+});

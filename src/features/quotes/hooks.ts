@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addQuoteMaterialItem,
   addQuoteServiceItem,
+  deleteAllQuotes,
   deleteOldQuotes,
   deleteQuoteMaterialItem,
   deleteQuoteServiceItem,
@@ -123,6 +124,18 @@ export const useDeleteOldQuotes = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['quote-detail'] });
+    },
+  });
+};
+
+export const useDeleteAllQuotes = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteAllQuotes(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      queryClient.invalidateQueries({ queryKey: ['quote-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
     },
   });
 };

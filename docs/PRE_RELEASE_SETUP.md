@@ -45,9 +45,18 @@ Orden actual:
 - `202603100001_initial_schema.sql`
 - `202603100002_quotes_services.sql`
 - `202603100003_appointments.sql`
+- `202603100004_jobs_calendar_material_notes.sql`
+- `202603100005_remove_is_active.sql`
 
 Seed de prueba E2E:
 - `supabase/seed/seed.sql`
+- `supabase/seed/seed_nossa_clima.sql`
+- Reset de datos de prueba (manteniendo servicios):
+  - `supabase/seed/reset_non_services.sql`
+- Reset total de datos (incluye servicios y perfiles):
+  - `supabase/seed/reset_all.sql`
+
+`seed_nossa_clima.sql` toma automaticamente el primer usuario de `auth.users` y setea los claims JWT necesarios para que funcionen los triggers en SQL Editor.
 
 Incluye:
 - stores de ejemplo

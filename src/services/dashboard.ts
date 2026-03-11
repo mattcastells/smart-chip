@@ -15,8 +15,8 @@ export interface DashboardSummary {
 export const getDashboardSummary = async (): Promise<DashboardSummary> => {
   const [{ count: storeCount, error: storesError }, { count: itemCount, error: itemsError }, latest] =
     await Promise.all([
-      supabase.from('stores').select('id', { count: 'exact', head: true }).eq('is_active', true),
-      supabase.from('items').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('stores').select('id', { count: 'exact', head: true }),
+      supabase.from('items').select('id', { count: 'exact', head: true }),
       supabase
         .from('latest_store_item_prices')
         .select('id, store_name, item_name, price, observed_at')

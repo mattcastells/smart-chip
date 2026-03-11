@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useLocalSearchParams } from 'expo-router';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -14,6 +15,7 @@ import { useStores } from '@/features/stores/hooks';
 import { toUserErrorMessage } from '@/lib/errors';
 
 export default function NewPricePage() {
+  const { itemId, storeId } = useLocalSearchParams<{ itemId?: string; storeId?: string }>();
   const { data: stores, isLoading: storesLoading, error: storesError } = useStores();
   const { data: items, isLoading: itemsLoading, error: itemsError } = useItems();
   const createPrice = useCreatePrice();
@@ -22,8 +24,8 @@ export default function NewPricePage() {
   const { control, handleSubmit } = useForm<PriceFormValues>({
     resolver: zodResolver(priceSchema),
     defaultValues: {
-      store_id: '',
-      item_id: '',
+      store_id: storeId ?? '',
+      item_id: itemId ?? '',
       price: 0,
       currency: 'ARS',
       observed_at: new Date().toISOString().slice(0, 10),
@@ -46,7 +48,7 @@ export default function NewPricePage() {
             <SegmentedButtons
               value={field.value}
               onValueChange={field.onChange}
-              buttons={(stores ?? []).filter((s) => s.is_active).map((s) => ({ value: s.id, label: s.name }))}
+              buttons={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))}
             />
           )}
         />
@@ -57,7 +59,7 @@ export default function NewPricePage() {
             <SegmentedButtons
               value={field.value}
               onValueChange={field.onChange}
-              buttons={(items ?? []).filter((i) => i.is_active).map((i) => ({ value: i.id, label: i.name }))}
+              buttons={(items ?? []).map((i) => ({ value: i.id, label: i.name }))}
             />
           )}
         />
@@ -103,7 +105,16 @@ export default function NewPricePage() {
           disabled={createPrice.isPending}
           onPress={handleSubmit(async (values) => {
             try {
-              await createPrice.mutateAsync({ ...values, observed_at: new Date(values.observed_at).toISOString() });
+              await createPrice.mutateAsync({
+                store_id: values.store_id,
+                item_id: values.item_id,
+                price: values.price,
+                currency: values.currency,
+                observed_at: new Date(values.observed_at).toISOString(),
+                source_type: values.source_type,
+                quantity_reference: values.quantity_reference?.trim() ? values.quantity_reference.trim() : null,
+                notes: values.notes?.trim() ? values.notes.trim() : null,
+              });
               router.back();
             } catch (error) {
               setMessage(toUserErrorMessage(error, 'No se pudo registrar el precio.'));

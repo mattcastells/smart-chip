@@ -4,21 +4,13 @@ import type { LatestStoreItemPrice, StoreItemPrice } from '@/types/db';
 export const createPriceRecord = async (
   payload: Omit<StoreItemPrice, 'id' | 'created_at' | 'user_id'>,
 ): Promise<StoreItemPrice> => {
-  const { data: store, error: storeError } = await supabase
-    .from('stores')
-    .select('id, is_active')
-    .eq('id', payload.store_id)
-    .single();
+  const { data: store, error: storeError } = await supabase.from('stores').select('id').eq('id', payload.store_id).single();
   if (storeError) throw storeError;
-  if (!store.is_active) throw new Error('La tienda está archivada');
+  if (!store) throw new Error('La tienda no existe.');
 
-  const { data: item, error: itemError } = await supabase
-    .from('items')
-    .select('id, is_active')
-    .eq('id', payload.item_id)
-    .single();
+  const { data: item, error: itemError } = await supabase.from('items').select('id').eq('id', payload.item_id).single();
   if (itemError) throw itemError;
-  if (!item.is_active) throw new Error('El ítem está archivado');
+  if (!item) throw new Error('El material no existe.');
 
   const { data, error } = await supabase.from('store_item_prices').insert(payload).select().single();
   if (error) throw error;
@@ -26,10 +18,7 @@ export const createPriceRecord = async (
 };
 
 export const listLatestPrices = async (): Promise<LatestStoreItemPrice[]> => {
-  const { data, error } = await supabase
-    .from('latest_store_item_prices')
-    .select('*')
-    .order('observed_at', { ascending: false });
+  const { data, error } = await supabase.from('latest_store_item_prices').select('*').order('observed_at', { ascending: false });
   if (error) throw error;
   return data;
 };

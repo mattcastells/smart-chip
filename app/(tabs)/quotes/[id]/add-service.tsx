@@ -42,7 +42,6 @@ export default function AddServiceToQuotePage() {
   const filteredServices = useMemo(
     () =>
       (services ?? [])
-        .filter((service) => service.is_active)
         .filter((service) => {
           const q = search.toLowerCase();
           return service.name.toLowerCase().includes(q) || (service.category ?? '').toLowerCase().includes(q);
@@ -55,7 +54,7 @@ export default function AddServiceToQuotePage() {
     (services ?? []).find((service) => service.id === selectedServiceId);
 
   return (
-    <AppScreen title="Agregar servicio">
+    <AppScreen title="Agregar servicio al trabajo">
       <LoadingOrError isLoading={servicesLoading} error={serviceError} />
       <View style={styles.container}>
         <Text style={styles.helperText}>Selecciona el tipo de servicio desde la lista de servicios cargados.</Text>
@@ -86,7 +85,7 @@ export default function AddServiceToQuotePage() {
               </Card.Content>
             </Card>
           )}
-          ListEmptyComponent={<Text style={styles.emptyText}>No hay servicios activos que coincidan con la busqueda.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>No hay servicios que coincidan con la busqueda.</Text>}
         />
 
         <View style={styles.selectionSummary}>
@@ -161,7 +160,7 @@ export default function AddServiceToQuotePage() {
             }
           })}
         >
-          Agregar servicio
+          Agregar servicio al trabajo
         </Button>
       </View>
       <Snackbar visible={Boolean(snack)} onDismiss={() => setSnack(null)} duration={2400}>

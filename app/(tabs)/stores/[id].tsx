@@ -1,12 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView } from 'react-native';
-import { Card, DataTable, Snackbar, Text } from 'react-native-paper';
+import { Button, Card, DataTable, Dialog, Portal, Snackbar, Text } from 'react-native-paper';
 
 import { AppScreen } from '@/components/AppScreen';
 import { LoadingOrError } from '@/components/LoadingOrError';
 import { StoreForm } from '@/features/stores/StoreForm';
-import { useSaveStore, useStoreLatestPrices, useStores } from '@/features/stores/hooks';
+import { useDeleteStore, useSaveStore, useStoreLatestPrices, useStores } from '@/features/stores/hooks';
 import { toUserErrorMessage } from '@/lib/errors';
 import { formatCurrencyArs, formatDateAr } from '@/lib/format';
 
@@ -16,7 +16,9 @@ export default function StoreDetailPage() {
   const { data, isLoading, error } = useStores();
   const { data: priceRows, isLoading: pricesLoading, error: pricesError } = useStoreLatestPrices(id ?? '');
   const save = useSaveStore();
+  const remove = useDeleteStore();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const store = data?.find((s) => s.id === id);
 
   return (
@@ -24,11 +26,24 @@ export default function StoreDetailPage() {
       <LoadingOrError isLoading={isLoading} error={error} />
       {store && (
         <StoreForm
-          defaultValues={store}
+          defaultValues={{
+            name: store.name,
+            description: store.description ?? '',
+            address: store.address ?? '',
+            phone: store.phone ?? '',
+            notes: store.notes ?? '',
+          }}
           onSubmit={async (values) => {
             try {
-              await save.mutateAsync({ ...values, id: store.id });
-              router.back();
+              await save.mutateAsync({
+                id: store.id,
+                name: values.name,
+                description: values.description?.trim() ? values.description.trim() : null,
+                address: values.address?.trim() ? values.address.trim() : null,
+                phone: values.phone?.trim() ? values.phone.trim() : null,
+                notes: values.notes?.trim() ? values.notes.trim() : null,
+              });
+              setMessage('Tienda guardada.');
             } catch (saveError) {
               setMessage(toUserErrorMessage(saveError, 'No se pudo guardar la tienda.'));
             }
@@ -36,16 +51,22 @@ export default function StoreDetailPage() {
         />
       )}
 
+      {store && (
+        <Button mode="outlined" textColor="#B3261E" onPress={() => setConfirmDelete(true)} disabled={remove.isPending}>
+          Borrar tienda
+        </Button>
+      )}
+
       <Card mode="outlined">
-        <Card.Title title="Items y precios en esta tienda" />
+        <Card.Title title="Materiales y precios en esta tienda" />
         <Card.Content>
           <LoadingOrError isLoading={pricesLoading} error={pricesError ? new Error(pricesError.message) : null} />
-          {!pricesLoading && (priceRows?.length ?? 0) === 0 && <Text>No hay items asociados con precio en esta tienda.</Text>}
+          {!pricesLoading && (priceRows?.length ?? 0) === 0 && <Text>No hay materiales asociados con precio en esta tienda.</Text>}
           {(priceRows?.length ?? 0) > 0 && (
             <ScrollView horizontal>
               <DataTable>
                 <DataTable.Header>
-                  <DataTable.Title style={{ minWidth: 220 }}>Item</DataTable.Title>
+                  <DataTable.Title style={{ minWidth: 220 }}>Material</DataTable.Title>
                   <DataTable.Title numeric style={{ minWidth: 140 }}>
                     Precio
                   </DataTable.Title>
@@ -66,6 +87,39 @@ export default function StoreDetailPage() {
           )}
         </Card.Content>
       </Card>
+
+      <Portal>
+        <Dialog visible={confirmDelete} onDismiss={() => !remove.isPending && setConfirmDelete(false)}>
+          <Dialog.Title>Borrar tienda</Dialog.Title>
+          <Dialog.Content>
+            <Text>Se intentara borrar la tienda y sus referencias directas.</Text>
+            <Text>Si tiene precios historicos asociados, Supabase puede bloquear el borrado por integridad.</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button disabled={remove.isPending} onPress={() => setConfirmDelete(false)}>
+              Cancelar
+            </Button>
+            <Button
+              loading={remove.isPending}
+              textColor="#B3261E"
+              onPress={async () => {
+                if (!store) return;
+                try {
+                  await remove.mutateAsync(store.id);
+                  setConfirmDelete(false);
+                  router.back();
+                } catch (deleteError) {
+                  setConfirmDelete(false);
+                  setMessage(toUserErrorMessage(deleteError, 'No se pudo borrar la tienda. Si tiene datos vinculados, elimina primero esas referencias.'));
+                }
+              }}
+            >
+              Borrar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
       <Snackbar visible={Boolean(message)} onDismiss={() => setMessage(null)}>
         {message}
       </Snackbar>

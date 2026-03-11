@@ -33,10 +33,13 @@ Copy-Item .env.example .env
 - `supabase/migrations/202603100001_initial_schema.sql`
 - `supabase/migrations/202603100002_quotes_services.sql`
 - `supabase/migrations/202603100003_appointments.sql`
+- `supabase/migrations/202603100004_jobs_calendar_material_notes.sql`
 
 5. (Opcional) Cargar datos de ejemplo:
 
 - `supabase/seed/seed.sql`
+- `supabase/seed/seed_nossa_clima.sql`
+- Para limpiar datos de prueba (manteniendo servicios): `supabase/seed/reset_non_services.sql`
 
 6. Levantar app:
 

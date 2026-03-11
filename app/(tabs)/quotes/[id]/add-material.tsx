@@ -53,7 +53,7 @@ export default function AddMaterialToQuotePage() {
   const unitPrice = watch('unit_price');
 
   const storePricesQuery = useStoreLatestPrices(sourceStoreId ?? '');
-  const storePriceRows = storePricesQuery.data ?? [];
+  const storePriceRows = useMemo(() => storePricesQuery.data ?? [], [storePricesQuery.data]);
 
   const storePriceByItemId = useMemo(
     () => new Map(storePriceRows.map((row) => [row.item_id, row.price] as const)),
@@ -62,7 +62,7 @@ export default function AddMaterialToQuotePage() {
   const storeItemIds = useMemo(() => new Set(storePriceRows.map((row) => row.item_id)), [storePriceRows]);
 
   const filteredItems = useMemo(() => {
-    const baseItems = (items ?? []).filter((item) => item.is_active);
+    const baseItems = (items ?? []).filter((item) => item.item_type === 'material');
     const byStore = sourceStoreId ? baseItems.filter((item) => storeItemIds.has(item.id)) : baseItems;
     const q = search.trim().toLowerCase();
 
@@ -91,8 +91,8 @@ export default function AddMaterialToQuotePage() {
         ? new Error(storePricesQuery.error.message)
         : null;
 
-  const activeStores = (stores ?? []).filter((store) => store.is_active);
-  const selectedStore = activeStores.find((store) => store.id === sourceStoreId) ?? null;
+  const availableStores = stores ?? [];
+  const selectedStore = availableStores.find((store) => store.id === sourceStoreId) ?? null;
 
   const submit = async () => {
     try {
@@ -111,10 +111,10 @@ export default function AddMaterialToQuotePage() {
         const createdItem = await saveItem.mutateAsync({
           name: normalizedManualName,
           item_type: 'material',
-          is_active: true,
           category: manualCategory.trim() || null,
           unit: normalizedManualUnit || null,
           brand: manualBrand.trim() || null,
+          notes: null,
         });
 
         setValue('item_id', createdItem.id, { shouldValidate: true });
@@ -147,7 +147,7 @@ export default function AddMaterialToQuotePage() {
   };
 
   return (
-    <AppScreen title="Agregar material">
+    <AppScreen title="Agregar material al trabajo">
       <LoadingOrError isLoading={loading} error={combinedError} />
 
       <View style={{ gap: 12 }}>
@@ -167,7 +167,7 @@ export default function AddMaterialToQuotePage() {
 
         <Text variant="titleMedium">Tienda de compra</Text>
         <FlatList
-          data={[{ id: '', name: 'Sin tienda' }, ...activeStores.map((store) => ({ id: store.id, name: store.name }))]}
+          data={[{ id: '', name: 'Sin tienda' }, ...availableStores.map((store) => ({ id: store.id, name: store.name }))]}
           keyExtractor={(item) => item.id || 'none'}
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -217,7 +217,7 @@ export default function AddMaterialToQuotePage() {
                 <Text>
                   {sourceStoreId
                     ? 'No hay items con precio cargado en la tienda seleccionada.'
-                    : 'No hay items activos que coincidan con la busqueda.'}
+                    : 'No hay items que coincidan con la busqueda.'}
                 </Text>
               }
             />
@@ -291,7 +291,7 @@ export default function AddMaterialToQuotePage() {
         <Text variant="titleMedium">Total estimado: {formatCurrencyArs((Number(quantity) || 0) * (Number(unitPrice) || 0))}</Text>
 
         <Button mode="contained" loading={add.isPending || saveItem.isPending} onPress={submit}>
-          Agregar material
+          Agregar material al trabajo
         </Button>
       </View>
 

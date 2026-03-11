@@ -5,13 +5,14 @@ import { Button, Dialog, Portal, Snackbar, Text } from 'react-native-paper';
 import { AppScreen } from '@/components/AppScreen';
 import { LoadingOrError } from '@/components/LoadingOrError';
 import { ServiceForm } from '@/features/services/ServiceForm';
-import { useDeleteService, useSaveService, useServices } from '@/features/services/hooks';
+import { useDeleteService, useSaveService, useServiceCategories, useServices } from '@/features/services/hooks';
 import { toUserErrorMessage } from '@/lib/errors';
 
 export default function ServiceDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data, isLoading, error } = useServices();
+  const { data: categories } = useServiceCategories();
   const save = useSaveService();
   const remove = useDeleteService();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -23,12 +24,26 @@ export default function ServiceDetailPage() {
       <LoadingOrError isLoading={isLoading} error={error} />
       {service && (
         <>
-          <Text>Podés editar nombre y precio base del servicio.</Text>
+          <Text>Podes editar nombre, descripcion y costo base del servicio.</Text>
           <ServiceForm
-            defaultValues={service}
+            categorySuggestions={categories ?? []}
+            defaultValues={{
+              name: service.name,
+              base_price: service.base_price,
+              description: service.description ?? '',
+              category: service.category ?? '',
+              unit_type: service.unit_type ?? '',
+            }}
             onSubmit={async (values) => {
               try {
-                await save.mutateAsync({ ...values, id: service.id });
+                await save.mutateAsync({
+                  id: service.id,
+                  name: values.name,
+                  base_price: values.base_price,
+                  description: values.description?.trim() ? values.description.trim() : null,
+                  category: values.category?.trim() ? values.category.trim() : null,
+                  unit_type: values.unit_type?.trim() ? values.unit_type.trim() : null,
+                });
                 router.back();
               } catch (saveError) {
                 setMessage(toUserErrorMessage(saveError, 'No se pudo guardar el servicio.'));

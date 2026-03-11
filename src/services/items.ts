@@ -5,7 +5,6 @@ export const listItems = async (): Promise<Item[]> => {
   const { data, error } = await supabase
     .from('items')
     .select('*')
-    .order('is_active', { ascending: false })
     .order('name');
   if (error) throw error;
   return data;

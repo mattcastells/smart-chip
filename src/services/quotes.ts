@@ -1,10 +1,13 @@
-import { supabase } from '@/lib/supabase';
-import type { Item, Quote, QuoteMaterialItem, QuoteServiceItem, QuoteStatus, Service, StoreItemPrice } from '@/types/db';
+﻿import { supabase } from '@/lib/supabase';
+import type { Appointment, Item, Quote, QuoteMaterialItem, QuoteServiceItem, QuoteStatus, Service, StoreItemPrice } from '@/types/db';
+
+import { isMissingAppointmentQuoteLinkError } from './supabaseCompatibility';
 
 export interface QuoteDetail {
   quote: Quote;
   materials: QuoteMaterialItem[];
   services: QuoteServiceItem[];
+  appointment: Appointment | null;
 }
 
 export interface SuggestedMaterialPrice {
@@ -15,6 +18,10 @@ export interface SuggestedMaterialPrice {
 export interface DeleteOldQuotesResult {
   deletedCount: number;
   cutoffIso: string;
+}
+
+export interface DeleteAllQuotesResult {
+  deletedCount: number;
 }
 
 export type QuoteMaterialItemInput = Omit<
@@ -59,7 +66,14 @@ export const getQuoteDetail = async (quoteId: string): Promise<QuoteDetail> => {
     .order('created_at');
   if (servicesError) throw servicesError;
 
-  return { quote, materials, services };
+  const { data: appointment, error: appointmentError } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('quote_id', quoteId)
+    .maybeSingle();
+  if (appointmentError && !isMissingAppointmentQuoteLinkError(appointmentError)) throw appointmentError;
+
+  return { quote, materials, services, appointment: appointment ?? null };
 };
 
 export const upsertQuote = async (payload: Partial<Quote> & Pick<Quote, 'client_name' | 'title'>): Promise<Quote> => {
@@ -74,26 +88,73 @@ export const deleteOldQuotes = async (olderThanDays: number): Promise<DeleteOldQ
   cutoffDate.setDate(cutoffDate.getDate() - safeDays);
   const cutoffIso = cutoffDate.toISOString();
 
-  const { data, error } = await supabase.from('quotes').delete().lt('created_at', cutoffIso).select('id');
-  if (error) throw error;
+  const { data: quoteRows, error: quoteRowsError } = await supabase
+    .from('quotes')
+    .select('id')
+    .lt('created_at', cutoffIso);
+  if (quoteRowsError) throw quoteRowsError;
+
+  const deletedCount = await deleteQuotesByIds((quoteRows ?? []).map((row) => row.id));
 
   return {
-    deletedCount: data?.length ?? 0,
+    deletedCount,
     cutoffIso,
   };
+};
+
+export const deleteAllQuotes = async (): Promise<DeleteAllQuotesResult> => {
+  const { data: quoteRows, error: quoteRowsError } = await supabase.from('quotes').select('id');
+  if (quoteRowsError) throw quoteRowsError;
+
+  const deletedCount = await deleteQuotesByIds((quoteRows ?? []).map((row) => row.id));
+  return { deletedCount };
+};
+
+const QUOTE_DELETE_BATCH_SIZE = 100;
+
+const chunkIds = (ids: string[]): string[][] => {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += QUOTE_DELETE_BATCH_SIZE) {
+    chunks.push(ids.slice(index, index + QUOTE_DELETE_BATCH_SIZE));
+  }
+  return chunks;
+};
+
+const deleteQuotesByIds = async (quoteIds: string[]): Promise<number> => {
+  if (quoteIds.length === 0) return 0;
+
+  let deletedQuotes = 0;
+
+  for (const idChunk of chunkIds(quoteIds)) {
+    const { error: appointmentError } = await supabase.from('appointments').delete().in('quote_id', idChunk);
+    if (appointmentError && !isMissingAppointmentQuoteLinkError(appointmentError)) {
+      throw appointmentError;
+    }
+
+    const { error: materialsError } = await supabase.from('quote_material_items').delete().in('quote_id', idChunk);
+    if (materialsError) throw materialsError;
+
+    const { error: servicesError } = await supabase.from('quote_service_items').delete().in('quote_id', idChunk);
+    if (servicesError) throw servicesError;
+
+    const { data: deletedRows, error: quoteDeleteError } = await supabase.from('quotes').delete().in('id', idChunk).select('id');
+    if (quoteDeleteError) throw quoteDeleteError;
+
+    deletedQuotes += deletedRows?.length ?? 0;
+  }
+
+  return deletedQuotes;
 };
 
 const getItemAndValidate = async (itemId: string): Promise<Item> => {
   const { data, error } = await supabase.from('items').select('*').eq('id', itemId).single();
   if (error) throw error;
-  if (!data.is_active) throw new Error('No se puede agregar un ítem archivado.');
   return data;
 };
 
 const getServiceAndValidate = async (serviceId: string): Promise<Service> => {
   const { data, error } = await supabase.from('services').select('*').eq('id', serviceId).single();
   if (error) throw error;
-  if (!data.is_active) throw new Error('No se puede agregar un servicio archivado.');
   return data;
 };
 

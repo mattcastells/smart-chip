@@ -20,7 +20,7 @@ export default function PriceComparisonPage() {
       <SegmentedButtons
         value={selectedItemId}
         onValueChange={setSelectedItemId}
-        buttons={(items ?? []).filter((i) => i.is_active).map((i) => ({ value: i.id, label: i.name }))}
+        buttons={(items ?? []).map((i) => ({ value: i.id, label: i.name }))}
       />
       <FlatList
         data={filtered}

@@ -61,7 +61,7 @@ export const QuoteMaterialItemForm = ({ stores, defaultValues, onSubmit, submitL
             onValueChange={(value) => field.onChange(value || null)}
             buttons={[
               { value: '', label: 'Sin tienda' },
-              ...stores.filter((s) => s.is_active).map((s) => ({ value: s.id, label: s.name })),
+              ...stores.map((s) => ({ value: s.id, label: s.name })),
             ]}
           />
         )}
@@ -69,7 +69,7 @@ export const QuoteMaterialItemForm = ({ stores, defaultValues, onSubmit, submitL
       <Controller
         control={control}
         name="notes"
-        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value} onChangeText={field.onChange} />}
+        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value ?? ''} onChangeText={field.onChange} />}
       />
       <Text>Total preview: ${(Number(quantity) || 0) * (Number(unitPrice) || 0)}</Text>
       <Button mode="contained" onPress={handleSubmit(onSubmit)}>

@@ -6,7 +6,6 @@ export type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled';
 export interface Profile {
   id: string;
   full_name: string | null;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -19,7 +18,6 @@ export interface Store {
   address: string | null;
   phone: string | null;
   notes: string | null;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -29,12 +27,12 @@ export interface Item {
   user_id: string;
   name: string;
   description: string | null;
+  notes: string | null;
   category: string | null;
   unit: string | null;
   sku: string | null;
   brand: string | null;
   item_type: ItemType;
-  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -47,7 +45,14 @@ export interface Service {
   category: string | null;
   base_price: number;
   unit_type: string | null;
-  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceCategory {
+  id: string;
+  user_id: string;
+  name: string;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +126,7 @@ export interface LatestStoreItemPrice extends StoreItemPrice {
 export interface Appointment {
   id: string;
   user_id: string;
+  quote_id: string | null;
   title: string;
   notes: string | null;
   scheduled_for: string;

@@ -8,7 +8,6 @@ export const serviceSchema = z.object({
   category: optionalTrimmedText,
   base_price: z.coerce.number().min(0, 'El precio base no puede ser negativo'),
   unit_type: optionalTrimmedText,
-  is_active: z.boolean().default(true),
 });
 
 export type ServiceFormValues = z.infer<typeof serviceSchema>;

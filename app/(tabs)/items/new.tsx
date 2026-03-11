@@ -1,15 +1,25 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Button, Card, Menu, Snackbar, Text, TextInput } from 'react-native-paper';
+import { Controller, useForm } from 'react-hook-form';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Button, Card, Chip, Menu, Snackbar, Text, TextInput } from 'react-native-paper';
+import { z } from 'zod';
 
 import { AppScreen } from '@/components/AppScreen';
 import { LoadingOrError } from '@/components/LoadingOrError';
-import { ItemForm } from '@/features/items/ItemForm';
-import { useSaveItem } from '@/features/items/hooks';
+import { useItems, useSaveItem } from '@/features/items/hooks';
 import { useCreatePrice } from '@/features/prices/hooks';
 import { useStores } from '@/features/stores/hooks';
 import { toUserErrorMessage } from '@/lib/errors';
+
+const newMaterialSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio'),
+  description: z.string().trim().optional(),
+  category: z.string().trim().optional(),
+});
+
+type NewMaterialValues = z.infer<typeof newMaterialSchema>;
 
 const parsePriceInput = (value: string): number | null => {
   const normalized = value.trim();
@@ -23,80 +33,167 @@ const parsePriceInput = (value: string): number | null => {
 export default function NewItemPage() {
   const save = useSaveItem();
   const createPrice = useCreatePrice();
+  const { data: items } = useItems();
   const { data: stores, isLoading: storesLoading, error: storesError } = useStores();
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<NewMaterialValues>({
+    resolver: zodResolver(newMaterialSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      category: '',
+    },
+  });
 
   const [message, setMessage] = useState<string | null>(null);
   const [storeMenuVisible, setStoreMenuVisible] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [initialPriceInput, setInitialPriceInput] = useState('');
 
-  const activeStores = useMemo(() => (stores ?? []).filter((store) => store.is_active), [stores]);
-  const selectedStore = activeStores.find((store) => store.id === selectedStoreId) ?? null;
+  const availableStores = useMemo(() => stores ?? [], [stores]);
+  const selectedStore = availableStores.find((store) => store.id === selectedStoreId) ?? null;
+  const categorySuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (items ?? [])
+            .filter((item) => item.item_type === 'material')
+            .map((item) => item.category?.trim() ?? '')
+            .filter((category) => category.length > 0),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
+    [items],
+  );
+
+  const currentCategory = watch('category')?.trim() ?? '';
+
+  const submit = handleSubmit(async (values) => {
+    const parsedPrice = parsePriceInput(initialPriceInput);
+
+    if (selectedStoreId && parsedPrice == null) {
+      setMessage('Si elegis una tienda, completa el precio inicial.');
+      return;
+    }
+
+    if (!selectedStoreId && parsedPrice != null) {
+      setMessage('Si cargas un precio inicial, primero elegi la tienda.');
+      return;
+    }
+
+    if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice <= 0)) {
+      setMessage('El precio inicial debe ser un numero mayor a 0.');
+      return;
+    }
+
+    try {
+      const createdItem = await save.mutateAsync({
+        name: values.name.trim(),
+        item_type: 'material',
+        category: values.category?.trim() ? values.category.trim() : null,
+        description: values.description?.trim() ? values.description.trim() : null,
+      });
+
+      if (selectedStoreId && parsedPrice != null) {
+        await createPrice.mutateAsync({
+          store_id: selectedStoreId,
+          item_id: createdItem.id,
+          price: parsedPrice,
+          currency: 'ARS',
+          observed_at: new Date().toISOString(),
+          source_type: 'manual_update',
+          quantity_reference: null,
+          notes: 'Precio inicial del material',
+        });
+      }
+
+      router.back();
+    } catch (error) {
+      setMessage(toUserErrorMessage(error, 'No se pudo guardar el material.'));
+    }
+  });
+
+  const isBusy = save.isPending || createPrice.isPending;
 
   return (
-    <AppScreen title="Nuevo item">
+    <AppScreen title="Nuevo material">
       <LoadingOrError isLoading={storesLoading} error={storesError ? new Error(storesError.message) : null} />
 
-      <ItemForm
-        onSubmit={async (values) => {
-          const parsedPrice = parsePriceInput(initialPriceInput);
+      <Card mode="outlined" style={styles.formCard}>
+        <Card.Content style={styles.formCardContent}>
+          <Controller
+            control={control}
+            name="name"
+            render={({ field }) => (
+              <TextInput
+                mode="outlined"
+                label="Nombre del material"
+                value={field.value}
+                onChangeText={field.onChange}
+                outlineStyle={styles.inputOutline}
+              />
+            )}
+          />
+          {errors.name ? <Text style={styles.errorText}>{errors.name.message}</Text> : null}
 
-          if (selectedStoreId && parsedPrice == null) {
-            setMessage('Si elegis una tienda, completa el precio inicial.');
-            return;
-          }
+          <Controller
+            control={control}
+            name="description"
+            render={({ field }) => (
+              <TextInput
+                mode="outlined"
+                label="Descripcion"
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                multiline
+                numberOfLines={3}
+                outlineStyle={styles.inputOutline}
+              />
+            )}
+          />
 
-          if (!selectedStoreId && parsedPrice != null) {
-            setMessage('Si cargas un precio inicial, primero elegi la tienda.');
-            return;
-          }
+          <Controller
+            control={control}
+            name="category"
+            render={({ field }) => (
+              <TextInput
+                mode="outlined"
+                label="Categoria"
+                value={field.value ?? ''}
+                onChangeText={field.onChange}
+                outlineStyle={styles.inputOutline}
+              />
+            )}
+          />
 
-          if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice <= 0)) {
-            setMessage('El precio inicial debe ser un numero mayor a 0.');
-            return;
-          }
-
-          try {
-            const createdItem = await save.mutateAsync({
-              name: values.name,
-              item_type: values.item_type,
-              is_active: true,
-              category: values.category?.trim() ? values.category.trim() : null,
-              unit: values.unit?.trim() ? values.unit.trim() : null,
-              brand: values.brand?.trim() ? values.brand.trim() : null,
-              sku: values.sku?.trim() ? values.sku.trim() : null,
-              description: values.description?.trim() ? values.description.trim() : null,
-            });
-
-            if (selectedStoreId && parsedPrice != null) {
-              try {
-                await createPrice.mutateAsync({
-                  store_id: selectedStoreId,
-                  item_id: createdItem.id,
-                  price: parsedPrice,
-                  currency: 'ARS',
-                  observed_at: new Date().toISOString(),
-                  source_type: 'manual_update',
-                  quantity_reference: null,
-                  notes: 'Precio inicial del item',
-                });
-              } catch (priceError) {
-                setMessage(toUserErrorMessage(priceError, 'El item se guardo, pero fallo la asociacion de precio con tienda.'));
-                return;
-              }
-            }
-
-            router.back();
-          } catch (error) {
-            setMessage(toUserErrorMessage(error, 'No se pudo guardar el item.'));
-          }
-        }}
-      />
+          {categorySuggestions.length > 0 && (
+            <View style={styles.categorySuggestions}>
+              <Text variant="labelMedium">Categorias existentes</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {categorySuggestions.map((category) => (
+                  <Chip
+                    key={category}
+                    selected={currentCategory.toLowerCase() === category.toLowerCase()}
+                    onPress={() => setValue('category', category)}
+                  >
+                    {category}
+                  </Chip>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
 
       <Card mode="outlined" style={styles.pricingCard}>
         <Card.Content style={styles.pricingCardContent}>
           <Text variant="titleSmall">Precio inicial (opcional)</Text>
-          <Text style={styles.helperText}>Asocia el item a una tienda y registra su primer precio.</Text>
+          <Text style={styles.helperText}>Asocia el material a una tienda y registra su primer precio.</Text>
 
           <View style={styles.fieldGroup}>
             <Text variant="labelMedium">Tienda</Text>
@@ -110,9 +207,9 @@ export default function NewItemPage() {
                   onPress={() => setStoreMenuVisible(true)}
                   style={styles.selectButton}
                   contentStyle={styles.selectButtonContent}
-                  disabled={activeStores.length === 0}
+                  disabled={availableStores.length === 0}
                 >
-                  {selectedStore?.name ?? (activeStores.length === 0 ? 'Sin tiendas activas' : 'Seleccionar tienda')}
+                  {selectedStore?.name ?? (availableStores.length === 0 ? 'Sin tiendas disponibles' : 'Seleccionar tienda')}
                 </Button>
               }
             >
@@ -123,7 +220,7 @@ export default function NewItemPage() {
                   setStoreMenuVisible(false);
                 }}
               />
-              {activeStores.map((store) => (
+              {availableStores.map((store) => (
                 <Menu.Item
                   key={store.id}
                   title={store.name}
@@ -148,6 +245,10 @@ export default function NewItemPage() {
         </Card.Content>
       </Card>
 
+      <Button mode="contained" onPress={submit} loading={isBusy} disabled={isBusy} style={styles.saveButton} contentStyle={styles.saveButtonContent}>
+        Guardar material
+      </Button>
+
       <Snackbar visible={Boolean(message)} onDismiss={() => setMessage(null)}>
         {message}
       </Snackbar>
@@ -156,8 +257,14 @@ export default function NewItemPage() {
 }
 
 const styles = StyleSheet.create({
+  formCard: {
+    borderRadius: 12,
+  },
+  formCardContent: {
+    gap: 12,
+    paddingVertical: 8,
+  },
   pricingCard: {
-    marginTop: 14,
     borderRadius: 12,
   },
   pricingCardContent: {
@@ -180,5 +287,21 @@ const styles = StyleSheet.create({
   },
   inputOutline: {
     borderRadius: 10,
+  },
+  categorySuggestions: {
+    gap: 8,
+  },
+  chipsRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  saveButton: {
+    borderRadius: 10,
+  },
+  saveButtonContent: {
+    minHeight: 44,
+  },
+  errorText: {
+    color: '#B00020',
   },
 });

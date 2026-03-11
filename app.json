@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "Precios Técnicos",
-    "slug": "precios-tecnicos",
+    "name": "Nossa Clima",
+    "slug": "nossa-clima",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "preciostecnicos",
+    "scheme": "nossaclima",
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
       "expo-font"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": false
     }
   }
 }

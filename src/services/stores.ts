@@ -5,7 +5,6 @@ export const listStores = async (): Promise<Store[]> => {
   const { data, error } = await supabase
     .from('stores')
     .select('*')
-    .order('is_active', { ascending: false })
     .order('name');
   if (error) throw error;
   return data;
@@ -15,6 +14,11 @@ export const upsertStore = async (payload: Partial<Store> & { name: string }): P
   const { data, error } = await supabase.from('stores').upsert(payload).select().single();
   if (error) throw error;
   return data;
+};
+
+export const deleteStore = async (storeId: string): Promise<void> => {
+  const { error } = await supabase.from('stores').delete().eq('id', storeId);
+  if (error) throw error;
 };
 
 export const listStoreLatestPrices = async (storeId: string): Promise<LatestStoreItemPrice[]> => {

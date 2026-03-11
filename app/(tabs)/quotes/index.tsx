@@ -1,68 +1,26 @@
 import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { Button, Card, Dialog, Portal, SegmentedButtons, Snackbar, Text, TextInput } from 'react-native-paper';
+import { Button, Card, Text } from 'react-native-paper';
 
 import { AppScreen } from '@/components/AppScreen';
 import { LoadingOrError } from '@/components/LoadingOrError';
-import { useDeleteOldQuotes, useQuotes } from '@/features/quotes/hooks';
-import { toUserErrorMessage } from '@/lib/errors';
+import { useQuotes } from '@/features/quotes/hooks';
 import { formatCurrencyArs, formatDateAr } from '@/lib/format';
-
-type CleanupStep = 'select' | 'confirm';
-
-const CLEANUP_OPTIONS = [
-  { value: '90', label: '90 dias' },
-  { value: '180', label: '180 dias' },
-  { value: '365', label: '365 dias' },
-];
 
 export default function QuotesScreen() {
   const { data, isLoading, error } = useQuotes();
-  const deleteOldQuotes = useDeleteOldQuotes();
-
-  const [cleanupVisible, setCleanupVisible] = useState(false);
-  const [cleanupStep, setCleanupStep] = useState<CleanupStep>('select');
-  const [olderThanDays, setOlderThanDays] = useState<string>('180');
-  const [confirmText, setConfirmText] = useState('');
-  const [snack, setSnack] = useState<string | null>(null);
-
-  const cutoffLabel = useMemo(() => {
-    const days = Number(olderThanDays);
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - (Number.isFinite(days) ? days : 180));
-    return formatDateAr(cutoffDate.toISOString());
-  }, [olderThanDays]);
-
-  const resetCleanupDialog = () => {
-    setCleanupVisible(false);
-    setCleanupStep('select');
-    setConfirmText('');
-  };
-
-  const handleRunCleanup = async () => {
-    try {
-      const result = await deleteOldQuotes.mutateAsync(Number(olderThanDays));
-      if (result.deletedCount === 0) {
-        setSnack(`No habia presupuestos anteriores al ${cutoffLabel}.`);
-      } else {
-        setSnack(`Se eliminaron ${result.deletedCount} presupuestos anteriores al ${cutoffLabel}.`);
-      }
-      resetCleanupDialog();
-    } catch (mutationError) {
-      setSnack(toUserErrorMessage(mutationError, 'No se pudieron eliminar los presupuestos antiguos.'));
-    }
-  };
 
   return (
-    <AppScreen title="Presupuestos">
+    <AppScreen title="Trabajos">
       <View style={styles.topActions}>
         <Link href="/quotes/new" asChild>
-          <Button mode="contained">Nuevo presupuesto</Button>
+          <Button mode="contained">Nuevo trabajo</Button>
         </Link>
-        <Button mode="outlined" icon="delete-sweep-outline" onPress={() => setCleanupVisible(true)}>
-          Limpiar antiguos
-        </Button>
+        <Link href="/quotes/cleanup" asChild>
+          <Button mode="outlined" icon="delete-sweep-outline">
+            Limpiar antiguos
+          </Button>
+        </Link>
       </View>
 
       <LoadingOrError isLoading={isLoading} error={error} />
@@ -74,9 +32,11 @@ export default function QuotesScreen() {
         renderItem={({ item }) => (
           <Link href={`/quotes/${item.id}`} asChild>
             <Card mode="outlined" style={styles.quoteCard}>
+              <View style={styles.headerBlock}>
+                <Text style={styles.headerTitle}>{item.title}</Text>
+              </View>
               <Card.Content style={styles.quoteContent}>
-                <Text variant="titleMedium">{item.client_name}</Text>
-                <Text>{item.title}</Text>
+                <Text style={styles.clientName}>{item.client_name}</Text>
                 <Text>{formatCurrencyArs(item.total)}</Text>
                 <Text>{formatDateAr(item.created_at)}</Text>
               </Card.Content>
@@ -85,60 +45,10 @@ export default function QuotesScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text>No hay presupuestos cargados. Crea uno nuevo para comenzar.</Text>
+            <Text>No hay trabajos cargados. Crea uno nuevo para comenzar.</Text>
           </View>
         }
       />
-
-      <Portal>
-        <Dialog visible={cleanupVisible} onDismiss={resetCleanupDialog}>
-          <Dialog.Title>Limpiar presupuestos antiguos</Dialog.Title>
-          <Dialog.Content style={styles.dialogContent}>
-            {cleanupStep === 'select' ? (
-              <>
-                <Text>Selecciona la antiguedad a eliminar.</Text>
-                <SegmentedButtons value={olderThanDays} onValueChange={setOlderThanDays} buttons={CLEANUP_OPTIONS} />
-                <Text>Se eliminaran presupuestos anteriores al {cutoffLabel}.</Text>
-              </>
-            ) : (
-              <>
-                <Text>Confirmacion final: esta accion es irreversible.</Text>
-                <TextInput
-                  mode="outlined"
-                  label='Escribe "ELIMINAR"'
-                  autoCapitalize="characters"
-                  value={confirmText}
-                  onChangeText={setConfirmText}
-                />
-              </>
-            )}
-          </Dialog.Content>
-          <Dialog.Actions>
-            {cleanupStep === 'select' ? (
-              <>
-                <Button onPress={resetCleanupDialog}>Cancelar</Button>
-                <Button onPress={() => setCleanupStep('confirm')}>Continuar</Button>
-              </>
-            ) : (
-              <>
-                <Button onPress={() => setCleanupStep('select')}>Volver</Button>
-                <Button
-                  onPress={handleRunCleanup}
-                  loading={deleteOldQuotes.isPending}
-                  disabled={deleteOldQuotes.isPending || confirmText.trim().toUpperCase() !== 'ELIMINAR'}
-                  textColor="#B00020"
-                >
-                  Eliminar
-                </Button>
-              </>
-            )}
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-
-      <Snackbar visible={Boolean(snack)} onDismiss={() => setSnack(null)} duration={2800}>
-        {snack}
-      </Snackbar>
     </AppScreen>
   );
 }
@@ -155,14 +65,27 @@ const styles = StyleSheet.create({
   },
   quoteCard: {
     marginBottom: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  headerBlock: {
+    backgroundColor: '#F6F8FB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  headerTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   quoteContent: {
+    paddingTop: 12,
     gap: 6,
+  },
+  clientName: {
+    color: '#5f6368',
   },
   emptyState: {
     paddingVertical: 8,
-  },
-  dialogContent: {
-    gap: 12,
   },
 });

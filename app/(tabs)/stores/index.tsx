@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
-import { FlatList } from 'react-native';
-import { Button, Card, Text } from 'react-native-paper';
+import { useMemo, useState } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Button, Card, Searchbar, Text } from 'react-native-paper';
 
 import { AppScreen } from '@/components/AppScreen';
 import { LoadingOrError } from '@/components/LoadingOrError';
@@ -8,25 +9,70 @@ import { useStores } from '@/features/stores/hooks';
 
 export default function StoresScreen() {
   const { data, isLoading, error } = useStores();
+  const [search, setSearch] = useState('');
+
+  const filteredStores = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (data ?? []).filter((store) => {
+      if (!q) return true;
+      return (
+        store.name.toLowerCase().includes(q) ||
+        (store.address ?? '').toLowerCase().includes(q) ||
+        (store.phone ?? '').toLowerCase().includes(q) ||
+        (store.notes ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [data, search]);
 
   return (
     <AppScreen title="Tiendas">
-      <Link href="/stores/new" asChild>
-        <Button mode="contained">Nueva tienda</Button>
-      </Link>
+      <Searchbar placeholder="Buscar tienda" value={search} onChangeText={setSearch} style={styles.searchbar} />
+
+      <View style={styles.topActions}>
+        <Link href="/stores/new" asChild>
+          <Button mode="contained">Nueva tienda</Button>
+        </Link>
+      </View>
+
       <LoadingOrError isLoading={isLoading} error={error} />
+
       <FlatList
-        data={data ?? []}
+        data={filteredStores}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <Link href={`/stores/${item.id}`} asChild>
-            <Card style={{ marginBottom: 8 }}>
-              <Card.Title title={item.name} subtitle={item.is_active ? 'Activa' : 'Archivada'} />
+            <Card mode="outlined" style={styles.storeCard}>
+              <Card.Content style={styles.storeCardContent}>
+                <Text variant="titleMedium">{item.name}</Text>
+                {item.address ? <Text>Ubicacion: {item.address}</Text> : null}
+                {item.phone ? <Text>Telefono: {item.phone}</Text> : null}
+              </Card.Content>
             </Card>
           </Link>
         )}
-        ListEmptyComponent={<Text>Sin tiendas registradas. Cargá tu primera tienda para registrar precios.</Text>}
+        ListEmptyComponent={<Text>No hay tiendas que coincidan con los filtros.</Text>}
       />
     </AppScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  searchbar: {
+    borderRadius: 14,
+  },
+  topActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  listContent: {
+    paddingBottom: 12,
+  },
+  storeCard: {
+    marginBottom: 10,
+    borderRadius: 12,
+  },
+  storeCardContent: {
+    gap: 4,
+  },
+});

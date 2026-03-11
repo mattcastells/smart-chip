@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { Switch, View } from 'react-native';
+import { View } from 'react-native';
 import { Button, Text, TextInput } from 'react-native-paper';
 
 import { StoreFormValues, storeSchema } from './schemas';
@@ -23,7 +23,6 @@ export const StoreForm = ({ defaultValues, onSubmit }: Props) => {
       address: defaultValues?.address ?? '',
       phone: defaultValues?.phone ?? '',
       notes: defaultValues?.notes ?? '',
-      is_active: defaultValues?.is_active ?? true,
     },
   });
 
@@ -36,32 +35,27 @@ export const StoreForm = ({ defaultValues, onSubmit }: Props) => {
       />
       <Controller
         control={control}
+        name="description"
+        render={({ field }) => <TextInput mode="outlined" label="Descripcion" value={field.value ?? ''} onChangeText={field.onChange} />}
+      />
+      <Controller
+        control={control}
         name="address"
-        render={({ field }) => <TextInput mode="outlined" label="Dirección" value={field.value} onChangeText={field.onChange} />}
+        render={({ field }) => <TextInput mode="outlined" label="Ubicacion" value={field.value ?? ''} onChangeText={field.onChange} />}
       />
       <Controller
         control={control}
         name="phone"
-        render={({ field }) => <TextInput mode="outlined" label="Teléfono" value={field.value} onChangeText={field.onChange} />}
+        render={({ field }) => <TextInput mode="outlined" label="Telefono" value={field.value ?? ''} onChangeText={field.onChange} />}
       />
       <Controller
         control={control}
         name="notes"
-        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value} onChangeText={field.onChange} />}
-      />
-      <Controller
-        control={control}
-        name="is_active"
-        render={({ field }) => (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-            <Text>Activa</Text>
-            <Switch value={field.value} onValueChange={field.onChange} />
-          </View>
-        )}
+        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value ?? ''} onChangeText={field.onChange} multiline />}
       />
       {errors.name && <Text style={{ color: '#B00020' }}>{errors.name.message}</Text>}
       <Button mode="contained" loading={isSubmitting} onPress={handleSubmit(onSubmit)}>
-        Guardar
+        Guardar tienda
       </Button>
     </View>
   );

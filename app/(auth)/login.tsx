@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
-import { Button, Snackbar, Text, TextInput } from 'react-native-paper';
+import { Button, Snackbar, Text, TextInput, useTheme } from 'react-native-paper';
 
 import { LoginFormValues, loginSchema } from '@/features/auth/schemas';
 import { signIn } from '@/features/auth/service';
@@ -11,6 +11,7 @@ import { toUserErrorMessage } from '@/lib/errors';
 
 export default function LoginScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
+  const theme = useTheme();
 
   const {
     control,
@@ -22,8 +23,8 @@ export default function LoginScreen() {
   });
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineMedium">Precios Técnicos</Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text variant="headlineMedium">Nossa Clima</Text>
       <Text variant="bodyMedium">Ingresá con tu usuario existente</Text>
       <Controller
         control={control}

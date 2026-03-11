@@ -15,7 +15,13 @@ export default function NewStorePage() {
       <StoreForm
         onSubmit={async (values) => {
           try {
-            await mutation.mutateAsync(values);
+            await mutation.mutateAsync({
+              name: values.name,
+              description: values.description?.trim() ? values.description.trim() : null,
+              address: values.address?.trim() ? values.address.trim() : null,
+              phone: values.phone?.trim() ? values.phone.trim() : null,
+              notes: values.notes?.trim() ? values.notes.trim() : null,
+            });
             router.back();
           } catch (error) {
             setMessage(toUserErrorMessage(error, 'No se pudo guardar la tienda.'));

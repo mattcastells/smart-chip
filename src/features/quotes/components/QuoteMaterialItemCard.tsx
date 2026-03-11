@@ -24,8 +24,10 @@ export const QuoteMaterialItemCard = ({ item, stores, onSave, onDuplicate, onDel
 
   return (
     <Card mode="outlined" style={styles.card}>
+      <View style={styles.headerBlock}>
+        <Text style={styles.headerTitle}>{item.item_name_snapshot}</Text>
+      </View>
       <Card.Content style={styles.content}>
-        <Text variant="titleMedium">{item.item_name_snapshot}</Text>
         <Text>
           {item.quantity} x {formatCurrencyArs(item.unit_price)} = {formatCurrencyArs(item.total_price)}
         </Text>
@@ -81,6 +83,17 @@ export const QuoteMaterialItemCard = ({ item, stores, onSave, onDuplicate, onDel
 const styles = StyleSheet.create({
   card: {
     borderRadius: 10,
+    overflow: 'hidden',
+  },
+  headerBlock: {
+    backgroundColor: '#F6F8FB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  headerTitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
   },
   content: {
     gap: 10,

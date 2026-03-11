@@ -39,7 +39,7 @@ export const QuoteServiceItemForm = ({ defaultValues, onSubmit, submitLabel }: P
       <Controller
         control={control}
         name="notes"
-        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value} onChangeText={field.onChange} />}
+        render={({ field }) => <TextInput mode="outlined" label="Notas" value={field.value ?? ''} onChangeText={field.onChange} />}
       />
       <Text>Total preview: ${(Number(quantity) || 0) * (Number(unitPrice) || 0)}</Text>
       <Button mode="contained" onPress={handleSubmit(onSubmit)}>

@@ -4,19 +4,27 @@ import { Snackbar } from 'react-native-paper';
 
 import { AppScreen } from '@/components/AppScreen';
 import { ServiceForm } from '@/features/services/ServiceForm';
-import { useSaveService } from '@/features/services/hooks';
+import { useSaveService, useServiceCategories } from '@/features/services/hooks';
 import { toUserErrorMessage } from '@/lib/errors';
 
 export default function NewServicePage() {
   const save = useSaveService();
+  const { data: categories } = useServiceCategories();
   const [message, setMessage] = useState<string | null>(null);
 
   return (
     <AppScreen title="Nuevo servicio">
       <ServiceForm
+        categorySuggestions={categories ?? []}
         onSubmit={async (values) => {
           try {
-            await save.mutateAsync(values);
+            await save.mutateAsync({
+              name: values.name,
+              base_price: values.base_price,
+              description: values.description?.trim() ? values.description.trim() : null,
+              category: values.category?.trim() ? values.category.trim() : null,
+              unit_type: values.unit_type?.trim() ? values.unit_type.trim() : null,
+            });
             router.back();
           } catch (error) {
             setMessage(toUserErrorMessage(error, 'No se pudo guardar el servicio.'));

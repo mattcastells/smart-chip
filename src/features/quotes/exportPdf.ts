@@ -1,11 +1,37 @@
-import { Platform } from 'react-native';
+import { Asset } from 'expo-asset';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import autoTable from 'jspdf-autotable';
 import { jsPDF } from 'jspdf';
+import { Platform } from 'react-native';
 
 import { formatCurrencyArs, formatDateAr } from '@/lib/format';
 import type { QuoteDetail } from '@/services/quotes';
+
+const BRAND_BLUE_HEX = '#032D6E';
+const BRAND_BLUE_RGB: [number, number, number] = [3, 45, 110];
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const brandLogo = require('../../../assets/Nossa Clima - Logo.jpg.jpeg');
+
+type WebLogoImage = {
+  dataUrl: string;
+  width: number;
+  height: number;
+};
+
+const resolveBrandLogoUri = async (): Promise<string> => {
+  try {
+    const asset = Asset.fromModule(brandLogo);
+
+    if (Platform.OS !== 'web' && !asset.localUri) {
+      await asset.downloadAsync();
+    }
+
+    return asset.localUri ?? asset.uri ?? '';
+  } catch {
+    return '';
+  }
+};
 
 const escapeHtml = (value: string): string =>
   value
@@ -66,10 +92,81 @@ const renderMaterialsRows = (detail: QuoteDetail): string => {
     .join('');
 };
 
-const buildQuotePdfHtml = (detail: QuoteDetail): string => {
+const buildCompanyLogoSvg = (): string => `
+  <svg viewBox="0 0 1400 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo Nossa Clima">
+    <polygon points="0,250 220,50 220,250" fill="${BRAND_BLUE_HEX}" />
+    <line x1="250" y1="250" x2="470" y2="250" stroke="${BRAND_BLUE_HEX}" stroke-width="14" />
+    <line x1="470" y1="50" x2="1400" y2="50" stroke="${BRAND_BLUE_HEX}" stroke-width="14" />
+    <text x="250" y="190" fill="${BRAND_BLUE_HEX}" font-family="Arial, Helvetica, sans-serif" font-size="158" font-weight="700" letter-spacing="1">
+      NOSSA CLIMA
+    </text>
+    <text x="500" y="266" fill="${BRAND_BLUE_HEX}" font-family="Arial, Helvetica, sans-serif" font-size="52" letter-spacing="1">
+      SERVICIOS INTEGRALES DE REFRIGERACION
+    </text>
+  </svg>`;
+
+const drawCompanyLogo = (doc: jsPDF, x: number, y: number, width: number): number => {
+  const baseWidth = 420;
+  const scale = width / baseWidth;
+  const logoHeight = 102 * scale;
+
+  doc.setFillColor(...BRAND_BLUE_RGB);
+  doc.triangle(x, y + 82 * scale, x + 70 * scale, y + 22 * scale, x + 70 * scale, y + 82 * scale, 'F');
+
+  doc.setDrawColor(...BRAND_BLUE_RGB);
+  doc.setLineWidth(Math.max(1, 3 * scale));
+  doc.line(x + 78 * scale, y + 82 * scale, x + 170 * scale, y + 82 * scale);
+  doc.line(x + 170 * scale, y + 22 * scale, x + 400 * scale, y + 22 * scale);
+
+  doc.setTextColor(...BRAND_BLUE_RGB);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(40 * scale);
+  doc.text('NOSSA CLIMA', x + 82 * scale, y + 64 * scale);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(12 * scale);
+  doc.text('SERVICIOS INTEGRALES DE REFRIGERACION', x + 178 * scale, y + 86 * scale);
+
+  return logoHeight;
+};
+
+const loadWebLogoImage = (uri: string): Promise<WebLogoImage> => {
+  if (typeof window === 'undefined' || !uri) {
+    return Promise.reject(new Error('Logo no disponible en entorno web'));
+  }
+
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      const canvas = window.document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('No se pudo obtener contexto 2D para el logo'));
+        return;
+      }
+
+      context.drawImage(image, 0, 0);
+      resolve({
+        dataUrl: canvas.toDataURL('image/jpeg', 0.92),
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    };
+    image.onerror = () => reject(new Error('No se pudo cargar el logo para PDF web'));
+    image.src = uri;
+  });
+};
+
+const buildQuotePdfHtml = (detail: QuoteDetail, brandLogoUri: string): string => {
   const { quote } = detail;
   const createdAt = formatDateAr(quote.created_at);
   const generatedAt = new Date().toLocaleString('es-AR');
+  const logoMarkup = brandLogoUri
+    ? `<img src="${escapeHtml(brandLogoUri)}" alt="Logo Nossa Clima" />`
+    : buildCompanyLogoSvg();
 
   return `
   <!doctype html>
@@ -81,16 +178,19 @@ const buildQuotePdfHtml = (detail: QuoteDetail): string => {
       <style>
         * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; color: #111827; padding: 24px; margin: 0; }
-        h1 { font-size: 24px; margin: 0 0 8px; }
+        h1 { font-size: 24px; margin: 0 0 8px; color: ${BRAND_BLUE_HEX}; }
         h2 { font-size: 16px; margin: 22px 0 10px; }
         .meta { margin: 0; font-size: 13px; color: #4b5563; }
         .box { border: 1px solid #d1d5db; border-radius: 10px; padding: 14px; margin-top: 14px; }
+        .brand-logo { width: 100%; max-width: 560px; margin-bottom: 14px; }
+        .brand-logo img { display: block; width: 100%; height: auto; }
+        .brand-logo svg { display: block; width: 100%; height: auto; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .label { font-size: 12px; color: #6b7280; margin-bottom: 2px; }
         .value { font-size: 14px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; text-align: left; }
-        th { background: #f3f4f6; }
+        th { background: ${BRAND_BLUE_HEX}; color: #ffffff; }
         .right { text-align: right; }
         .totals { margin-top: 16px; width: 320px; margin-left: auto; }
         .totals td { font-size: 13px; }
@@ -98,6 +198,7 @@ const buildQuotePdfHtml = (detail: QuoteDetail): string => {
       </style>
     </head>
     <body>
+      <div class="brand-logo">${logoMarkup}</div>
       <h1>Presupuesto tecnico</h1>
       <p class="meta">Generado: ${escapeHtml(generatedAt)}</p>
       <p class="meta">Fecha de alta: ${escapeHtml(createdAt)}</p>
@@ -174,18 +275,40 @@ const buildQuotePdfHtml = (detail: QuoteDetail): string => {
   </html>`;
 };
 
-const exportQuotePdfWeb = async (detail: QuoteDetail): Promise<void> => {
+const exportQuotePdfWeb = async (detail: QuoteDetail, brandLogoUri: string): Promise<void> => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const marginX = 44;
 
-  let cursorY = 46;
+  let cursorY = 42;
+  let logoDrawn = false;
+
+  if (brandLogoUri) {
+    try {
+      const logoImage = await loadWebLogoImage(brandLogoUri);
+      const logoWidth = 340;
+      const logoHeight = (logoWidth * logoImage.height) / logoImage.width;
+      doc.addImage(logoImage.dataUrl, 'JPEG', marginX, cursorY, logoWidth, logoHeight, undefined, 'FAST');
+      cursorY += logoHeight + 18;
+      logoDrawn = true;
+    } catch {
+      logoDrawn = false;
+    }
+  }
+
+  if (!logoDrawn) {
+    const logoHeight = drawCompanyLogo(doc, marginX, cursorY, 340);
+    cursorY += logoHeight + 18;
+  }
+
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
+  doc.setTextColor(...BRAND_BLUE_RGB);
   doc.text('Presupuesto tecnico', marginX, cursorY);
 
   cursorY += 20;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
+  doc.setTextColor(34, 49, 63);
   doc.text(`Fecha: ${formatDateAr(detail.quote.created_at)}`, marginX, cursorY);
   doc.text(`Generado: ${new Date().toLocaleString('es-AR')}`, 330, cursorY);
 
@@ -221,7 +344,7 @@ const exportQuotePdfWeb = async (detail: QuoteDetail): Promise<void> => {
           formatCurrencyArs(service.total_price),
         ])) as string[][],
     styles: { fontSize: 10, cellPadding: 5 },
-    headStyles: { fillColor: [11, 110, 79], textColor: [255, 255, 255] },
+    headStyles: { fillColor: BRAND_BLUE_RGB, textColor: [255, 255, 255] },
     columnStyles: {
       1: { halign: 'right' },
       2: { halign: 'right' },
@@ -248,7 +371,7 @@ const exportQuotePdfWeb = async (detail: QuoteDetail): Promise<void> => {
           formatCurrencyArs(material.total_price),
         ])) as string[][],
     styles: { fontSize: 10, cellPadding: 5 },
-    headStyles: { fillColor: [11, 110, 79], textColor: [255, 255, 255] },
+    headStyles: { fillColor: BRAND_BLUE_RGB, textColor: [255, 255, 255] },
     columnStyles: {
       1: { halign: 'right' },
       3: { halign: 'right' },
@@ -269,12 +392,14 @@ const exportQuotePdfWeb = async (detail: QuoteDetail): Promise<void> => {
 };
 
 export const exportQuotePdf = async (detail: QuoteDetail): Promise<void> => {
+  const brandLogoUri = await resolveBrandLogoUri();
+
   if (Platform.OS === 'web') {
-    await exportQuotePdfWeb(detail);
+    await exportQuotePdfWeb(detail, brandLogoUri);
     return;
   }
 
-  const html = buildQuotePdfHtml(detail);
+  const html = buildQuotePdfHtml(detail, brandLogoUri);
   const file = await Print.printToFileAsync({ html });
   const canShare = await Sharing.isAvailableAsync();
 

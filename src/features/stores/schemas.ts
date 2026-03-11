@@ -8,7 +8,6 @@ export const storeSchema = z.object({
   address: optionalTrimmedText,
   phone: optionalTrimmedText,
   notes: optionalTrimmedText,
-  is_active: z.boolean().default(true),
 });
 
 export type StoreFormValues = z.infer<typeof storeSchema>;

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { listStoreLatestPrices, listStores, upsertStore } from '@/services/stores';
+import { deleteStore, listStoreLatestPrices, listStores, upsertStore } from '@/services/stores';
 import type { Store } from '@/types/db';
 
 export const useStores = () => useQuery({ queryKey: ['stores'], queryFn: listStores });
@@ -17,5 +17,17 @@ export const useSaveStore = () => {
   return useMutation({
     mutationFn: (payload: Partial<Store> & { name: string }) => upsertStore(payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
+  });
+};
+
+export const useDeleteStore = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (storeId: string) => deleteStore(storeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      queryClient.invalidateQueries({ queryKey: ['store-latest-prices'] });
+      queryClient.invalidateQueries({ queryKey: ['latest-prices'] });
+    },
   });
 };

@@ -13,7 +13,7 @@ export default function NewQuotePage() {
   const [message, setMessage] = useState<string | null>(null);
 
   return (
-    <AppScreen title="Nuevo presupuesto">
+    <AppScreen title="Nuevo trabajo">
       <Card mode="outlined" style={styles.formCard}>
         <Card.Content style={styles.formCardContent}>
           <QuoteForm
@@ -28,7 +28,7 @@ export default function NewQuotePage() {
                 });
                 router.replace(`/quotes/${quote.id}`);
               } catch (error) {
-                setMessage(toUserErrorMessage(error, 'No se pudo guardar el presupuesto.'));
+                setMessage(toUserErrorMessage(error, 'No se pudo guardar el trabajo.'));
               }
             }}
           />
